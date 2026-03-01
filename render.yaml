@@ -1,20 +1,22 @@
+databases:
+  - name: za-support-db
+    databaseName: zasupport
+    user: zasupport
+
 services:
   - type: web
     name: za-support-backend
     runtime: python
     buildCommand: pip install -r requirements.txt
-    startCommand: python main_integrated.py
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: API_KEY
         value: ZAS_demo123
       - key: ENCRYPTION_KEY
         value: 8JuuBTgzmc59mtw1F-jbNh3Ke72QCrVnhTJH3IBPyUk=
+      - key: SECRET_KEY
+        generateValue: true
       - key: DATABASE_URL
         fromDatabase:
           name: za-support-db
           property: connectionString
-
-databases:
-  - name: za-support-db
-    databaseName: zasupport
-    user: zasupport
