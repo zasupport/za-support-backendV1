@@ -34,6 +34,28 @@ def system_diagnostics():
     return _get_system_info()
 
 
+@router.get("/deploy")
+def deploy_status(db: Session = Depends(get_db)):
+    """Quick deploy verification — returns OK if DB is connected and tables exist."""
+    try:
+        db.execute(text("SELECT 1")).fetchone()
+        from app.models import User
+        user_count = db.query(User).count()
+        return {
+            "status": "ok",
+            "database": "connected",
+            "users": user_count,
+            "timestamp": datetime.utcnow().isoformat(),
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "database": "disconnected",
+            "error": str(e),
+            "timestamp": datetime.utcnow().isoformat(),
+        }
+
+
 def _check_database(db: Session) -> dict:
     try:
         result = db.execute(text("SELECT 1")).fetchone()

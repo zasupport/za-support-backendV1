@@ -28,3 +28,34 @@ jobs:
       - name: Verify app starts
         run: |
           python -c "from main import app; print(f'Routes: {len(app.routes)}')"
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install requests
+        run: pip install requests
+
+      - name: Trigger Render deploy
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+        run: python scripts/render_deploy.py full-deploy
+        continue-on-error: true
+        id: deploy
+
+      - name: Auto-rollback on failure
+        if: steps.deploy.outcome == 'failure'
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+        run: |
+          echo "Deploy failed — triggering rollback"
+          python scripts/render_deploy.py rollback
