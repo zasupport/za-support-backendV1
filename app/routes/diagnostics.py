@@ -39,20 +39,27 @@ def _check_database(db: Session) -> dict:
         result = db.execute(text("SELECT 1")).fetchone()
         connected = result is not None
 
-        # Get table info
-        tables_result = db.execute(text(
-            "SELECT tablename FROM pg_tables WHERE schemaname = 'public'"
-        )).fetchall()
+        # Get table info (works with both PostgreSQL and SQLite)
+        dialect = db.bind.dialect.name if db.bind else "unknown"
+        if dialect == "postgresql":
+            tables_result = db.execute(text(
+                "SELECT tablename FROM pg_tables WHERE schemaname = 'public'"
+            )).fetchall()
+        else:
+            tables_result = db.execute(text(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+            )).fetchall()
         tables = [row[0] for row in tables_result]
 
         # Get row counts
         table_counts = {}
         for table in tables:
-            count = db.execute(text(f"SELECT COUNT(*) FROM {table}")).fetchone()
+            count = db.execute(text(f"SELECT COUNT(*) FROM \"{table}\"")).fetchone()
             table_counts[table] = count[0] if count else 0
 
         return {
             "status": "connected" if connected else "disconnected",
+            "dialect": dialect,
             "tables": tables,
             "row_counts": table_counts,
         }
