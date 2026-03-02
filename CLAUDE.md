@@ -73,6 +73,14 @@ Rules for the next-steps block:
 - Always offer to execute the next ready item automatically
 - Reference SESSION_MAP.json and the audit tool when recommending cross-session work
 
+### CRITICAL — Auto-Execute Next Steps
+
+When the user says "go", execute the next ready item from the What's Next block **immediately and fully** — do not ask for confirmation, do not re-explain the plan, do not pause to ask which item. Just do it. Treat "go" as "execute item #1 from Ready to execute now, start to finish, then show the updated What's Next block."
+
+This applies to all variations: "go", "Go", "GO", "do it", "next", "proceed", "continue", "yes", or any affirmative single-word response after a What's Next block.
+
+**Never** respond to "go" with a question or summary. Respond with action.
+
 ### General Preferences
 
 - Be concise. No filler.
