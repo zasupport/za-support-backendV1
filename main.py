@@ -8,6 +8,7 @@ from app.models import User, UserRole
 from app.auth import hash_password
 from app.routes import api_router
 from app.config import PORT
+from app.services.isp_scheduler import start_isp_scheduler, stop_isp_scheduler
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -22,8 +23,20 @@ async def lifespan(application: FastAPI):
         _seed_admin()
     except Exception as e:
         logger.warning(f"Startup DB init skipped (DB may not be ready): {e}")
+
+    # Start ISP monitor background scheduler
+    try:
+        start_isp_scheduler()
+    except Exception as e:
+        logger.warning(f"ISP scheduler startup skipped: {e}")
+
     yield
+
     # --- Shutdown ---
+    try:
+        stop_isp_scheduler()
+    except Exception:
+        pass
     logger.info("ZA Support Backend shutting down")
 
 
@@ -80,6 +93,9 @@ async def root():
             "network_monitoring": "/api/v1/network",
             "diagnostics": "/api/v1/diagnostics",
             "dashboard": "/api/v1/dashboard",
+            "devices": "/api/v1/devices",
+            "alerts": "/api/v1/alerts",
+            "isp_monitor": "/api/v1/isp",
         },
     }
 

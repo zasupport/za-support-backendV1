@@ -103,7 +103,10 @@ def _get_system_info() -> dict:
 
 
 def _get_app_info(db: Session) -> dict:
-    from app.models import User, Ticket, ChatSession, ChatMessage, HealthData, NetworkData
+    from app.models import (
+        User, Ticket, ChatSession, ChatMessage, HealthData, NetworkData,
+        Device, Alert, ISPProvider, ISPOutage, WorkshopDiagnostic,
+    )
 
     try:
         return {
@@ -114,6 +117,11 @@ def _get_app_info(db: Session) -> dict:
             "chat_messages": db.query(ChatMessage).count(),
             "health_records": db.query(HealthData).count(),
             "network_records": db.query(NetworkData).count(),
+            "devices": db.query(Device).count(),
+            "alerts": db.query(Alert).count(),
+            "isp_providers": db.query(ISPProvider).count(),
+            "isp_outages": db.query(ISPOutage).count(),
+            "workshop_diagnostics": db.query(WorkshopDiagnostic).count(),
         }
     except Exception as e:
         return {"version": "2.0.0", "error": str(e)}

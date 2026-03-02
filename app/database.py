@@ -14,3 +14,8 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+def get_session_factory():
+    """Return the SessionLocal factory (used by background schedulers)."""
+    return SessionLocal

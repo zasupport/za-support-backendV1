@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from typing import Optional
 
 from app.database import get_db
-from app.models import HealthData
+from app.models import HealthData, Device
 from app.schemas import HealthSubmission, HealthOut
 from app.config import API_KEY
 
@@ -22,6 +22,13 @@ def submit_health(
     api_key: str = Depends(verify_api_key),
     db: Session = Depends(get_db),
 ):
+    # Auto-register device if not exists (required by FK constraint)
+    device = db.query(Device).filter(Device.machine_id == data.machine_id).first()
+    if not device:
+        device = Device(machine_id=data.machine_id, device_type="other")
+        db.add(device)
+        db.flush()
+
     record = HealthData(**data.model_dump())
     db.add(record)
     db.commit()
