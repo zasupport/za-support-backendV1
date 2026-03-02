@@ -133,3 +133,86 @@ class NetworkData(Base):
     total_clients = Column(Integer)
     total_devices = Column(Integer)
     raw_data = Column(JSON)
+
+
+# --- Agent Device Management ---
+
+class AgentDevice(Base):
+    __tablename__ = "agent_devices"
+
+    id = Column(Integer, primary_key=True, index=True)
+    serial = Column(String, unique=True, index=True, nullable=False)
+    model = Column(String, default="")
+    hostname = Column(String, default="")
+    os_version = Column(String, default="")
+    agent_version = Column(String, default="")
+    hardware_uuid = Column(String, default="")
+    collection_interval = Column(Integer, default=300)
+    heartbeat_interval = Column(Integer, default=60)
+    command_poll_interval = Column(Integer, default=60)
+    first_seen = Column(DateTime, default=datetime.utcnow)
+    last_heartbeat = Column(DateTime, default=datetime.utcnow)
+    last_collection = Column(DateTime, nullable=True)
+
+    collections = relationship("AgentCollection", back_populates="device", order_by="AgentCollection.received_at.desc()")
+    commands = relationship("AgentCommand", back_populates="device", order_by="AgentCommand.created_at.desc()")
+
+
+class AgentCollection(Base):
+    __tablename__ = "agent_collections"
+
+    id = Column(Integer, primary_key=True, index=True)
+    device_id = Column(Integer, ForeignKey("agent_devices.id"), nullable=False)
+    serial = Column(String, index=True, nullable=False)
+    collection_type = Column(String, default="lite")
+    received_at = Column(DateTime, default=datetime.utcnow)
+    data = Column(JSON, nullable=False)
+    alerts = Column(JSON, default=list)
+
+    device = relationship("AgentDevice", back_populates="collections")
+
+
+class AgentCommand(Base):
+    __tablename__ = "agent_commands"
+
+    id = Column(Integer, primary_key=True, index=True)
+    command_id = Column(String, unique=True, index=True, nullable=False)
+    device_id = Column(Integer, ForeignKey("agent_devices.id"), nullable=False)
+    serial = Column(String, index=True, nullable=False)
+    type = Column(String, nullable=False)
+    payload = Column(String, default="")
+    dispatched = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    device = relationship("AgentDevice", back_populates="commands")
+    result = relationship("AgentCommandResult", back_populates="command", uselist=False)
+
+
+class AgentCommandResult(Base):
+    __tablename__ = "agent_command_results"
+
+    id = Column(Integer, primary_key=True, index=True)
+    command_id = Column(String, ForeignKey("agent_commands.command_id"), unique=True, index=True, nullable=False)
+    serial = Column(String, index=True, nullable=False)
+    status = Column(String, nullable=False)
+    result = Column(Text, default="")
+    duration_seconds = Column(Integer, default=0)
+    timestamp = Column(String, default="")
+    received_at = Column(DateTime, default=datetime.utcnow)
+
+    command = relationship("AgentCommand", back_populates="result")
+
+
+class ISPAlert(Base):
+    __tablename__ = "isp_alerts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    isp_slug = Column(String, index=True, nullable=False)
+    severity = Column(String, nullable=False)
+    old_status = Column(String, nullable=False)
+    new_status = Column(String, nullable=False)
+    weighted_score = Column(Float, default=0)
+    confirmed_down = Column(Integer, default=0)
+    down_methods = Column(JSON, default=list)
+    cycle = Column(Integer, default=0)
+    timestamp = Column(DateTime, default=datetime.utcnow)

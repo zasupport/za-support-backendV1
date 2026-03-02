@@ -1,6 +1,7 @@
 """
 ZA Support — ISP Outage Monitor: Background Scheduler & Alerts
 Periodically polls all ISPs, correlates signals, fires alerts on status changes.
+DB-backed alert storage — alerts persist across restarts.
 
 Usage:
     Called from main.py lifespan — starts an asyncio background task that runs
@@ -14,6 +15,8 @@ import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
+from sqlalchemy.orm import Session
+
 from detection_engine import OutageCorrelator, OutageStatus
 
 logger = logging.getLogger("scheduler")
@@ -22,34 +25,93 @@ SAST = timezone(timedelta(hours=2))
 
 
 # ===================================================================
-# Alert Store
+# Alert Store (DB-backed)
 # ===================================================================
 class AlertStore:
-    """In-memory alert store with severity levels and history."""
+    """DB-backed alert store with severity levels and history."""
 
-    def __init__(self, max_per_isp: int = 200):
-        self._alerts: Dict[str, List[Dict[str, Any]]] = {}  # isp_slug -> [alerts]
-        self._max = max_per_isp
+    def __init__(self, session_factory=None):
+        self._session_factory = session_factory
+
+    def bind(self, session_factory) -> None:
+        self._session_factory = session_factory
+
+    def _get_db(self) -> Optional[Session]:
+        if self._session_factory:
+            return self._session_factory()
+        return None
 
     def add(self, isp_slug: str, alert: Dict[str, Any]) -> None:
-        if isp_slug not in self._alerts:
-            self._alerts[isp_slug] = []
-        self._alerts[isp_slug].append(alert)
-        if len(self._alerts[isp_slug]) > self._max:
-            self._alerts[isp_slug] = self._alerts[isp_slug][-self._max:]
+        from app.models import ISPAlert
+        db = self._get_db()
+        if not db:
+            return
+        try:
+            row = ISPAlert(
+                isp_slug=isp_slug,
+                severity=alert.get("severity", "info"),
+                old_status=alert.get("old_status", ""),
+                new_status=alert.get("new_status", ""),
+                weighted_score=alert.get("weighted_score", 0),
+                confirmed_down=alert.get("confirmed_down", 0),
+                down_methods=alert.get("down_methods", []),
+                cycle=alert.get("cycle", 0),
+                timestamp=datetime.now(SAST),
+            )
+            db.add(row)
+            db.commit()
+        finally:
+            db.close()
 
     def get(self, isp_slug: str, limit: int = 50) -> List[Dict[str, Any]]:
-        return self._alerts.get(isp_slug, [])[-limit:]
+        from app.models import ISPAlert
+        db = self._get_db()
+        if not db:
+            return []
+        try:
+            rows = db.query(ISPAlert).filter(
+                ISPAlert.isp_slug == isp_slug
+            ).order_by(ISPAlert.timestamp.desc()).limit(limit).all()
+            return [self._row_to_dict(r) for r in reversed(rows)]
+        finally:
+            db.close()
 
     def get_all(self, limit: int = 100) -> List[Dict[str, Any]]:
-        all_alerts: List[Dict[str, Any]] = []
-        for alerts in self._alerts.values():
-            all_alerts.extend(alerts)
-        all_alerts.sort(key=lambda a: a.get("timestamp", ""), reverse=True)
-        return all_alerts[:limit]
+        from app.models import ISPAlert
+        db = self._get_db()
+        if not db:
+            return []
+        try:
+            rows = db.query(ISPAlert).order_by(
+                ISPAlert.timestamp.desc()
+            ).limit(limit).all()
+            return [self._row_to_dict(r) for r in rows]
+        finally:
+            db.close()
 
     def count(self) -> int:
-        return sum(len(v) for v in self._alerts.values())
+        from app.models import ISPAlert
+        db = self._get_db()
+        if not db:
+            return 0
+        try:
+            return db.query(ISPAlert).count()
+        finally:
+            db.close()
+
+    @staticmethod
+    def _row_to_dict(row) -> Dict[str, Any]:
+        return {
+            "isp": row.isp_slug,
+            "severity": row.severity,
+            "old_status": row.old_status,
+            "new_status": row.new_status,
+            "weighted_score": row.weighted_score,
+            "confirmed_down": row.confirmed_down,
+            "down_methods": row.down_methods or [],
+            "timestamp": row.timestamp.isoformat() if row.timestamp else "",
+            "cycle": row.cycle,
+        }
 
 
 # ===================================================================

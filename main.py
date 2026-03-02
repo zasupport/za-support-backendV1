@@ -15,8 +15,8 @@ from scheduler import ISPMonitorScheduler, AlertStore
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Shared alert store + scheduler instance
-alert_store = AlertStore()
+# Shared alert store (DB-backed) + scheduler instance
+alert_store = AlertStore(session_factory=SessionLocal)
 isp_scheduler = ISPMonitorScheduler(
     manager=manager,
     correlator=correlator,

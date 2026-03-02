@@ -1,59 +1,77 @@
-"""Tests for the scheduler and alert store (scheduler.py)."""
+"""Tests for the scheduler and alert store (scheduler.py) — DB-backed."""
 import pytest
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
+
+from app.database import Base
 from scheduler import AlertStore, ISPMonitorScheduler
 from detection_engine import OutageCorrelator, OutageStatus
+
+
+@pytest.fixture
+def db_session_factory():
+    """Create a fresh in-memory SQLite DB for each test."""
+    engine = create_engine(
+        "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool,
+    )
+    Base.metadata.create_all(bind=engine)
+    factory = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    yield factory
+    Base.metadata.drop_all(bind=engine)
+
+
+@pytest.fixture
+def store(db_session_factory):
+    return AlertStore(session_factory=db_session_factory)
 
 
 # ---------------------------------------------------------------------------
 # AlertStore
 # ---------------------------------------------------------------------------
 
-def test_alert_store_add_and_get():
-    store = AlertStore()
-    store.add("afrihost", {"severity": "critical", "timestamp": "2026-03-02T10:00:00"})
-    store.add("afrihost", {"severity": "resolved", "timestamp": "2026-03-02T10:05:00"})
+def test_alert_store_add_and_get(store):
+    store.add("afrihost", {"severity": "critical", "old_status": "operational", "new_status": "full_outage"})
+    store.add("afrihost", {"severity": "resolved", "old_status": "full_outage", "new_status": "operational"})
     alerts = store.get("afrihost")
     assert len(alerts) == 2
 
 
-def test_alert_store_get_empty():
-    store = AlertStore()
+def test_alert_store_get_empty(store):
     assert store.get("nonexistent") == []
 
 
-def test_alert_store_get_all():
-    store = AlertStore()
-    store.add("afrihost", {"severity": "critical", "timestamp": "2026-03-02T10:00:00"})
-    store.add("rain", {"severity": "warning", "timestamp": "2026-03-02T10:01:00"})
+def test_alert_store_get_all(store):
+    store.add("afrihost", {"severity": "critical", "old_status": "op", "new_status": "fo"})
+    store.add("rain", {"severity": "warning", "old_status": "op", "new_status": "deg"})
     all_alerts = store.get_all()
     assert len(all_alerts) == 2
 
 
-def test_alert_store_count():
-    store = AlertStore()
-    store.add("afrihost", {"severity": "critical", "timestamp": "t1"})
-    store.add("afrihost", {"severity": "resolved", "timestamp": "t2"})
-    store.add("rain", {"severity": "warning", "timestamp": "t3"})
+def test_alert_store_count(store):
+    store.add("afrihost", {"severity": "critical", "old_status": "a", "new_status": "b"})
+    store.add("afrihost", {"severity": "resolved", "old_status": "b", "new_status": "a"})
+    store.add("rain", {"severity": "warning", "old_status": "a", "new_status": "c"})
     assert store.count() == 3
 
 
-def test_alert_store_respects_max():
-    store = AlertStore(max_per_isp=3)
+def test_alert_store_respects_max(store):
+    """DB store keeps all rows — get() limit caps the return."""
     for i in range(5):
-        store.add("afrihost", {"id": i, "timestamp": f"t{i}"})
-    assert len(store.get("afrihost")) == 3
-    # Should keep the last 3
-    assert store.get("afrihost")[0]["id"] == 2
+        store.add("afrihost", {"severity": "info", "old_status": "a", "new_status": "b"})
+    assert store.count() == 5
+    # Default limit=50, so all 5 returned
+    assert len(store.get("afrihost")) == 5
+    # Explicit limit returns capped result
+    assert len(store.get("afrihost", limit=3)) == 3
 
 
 # ---------------------------------------------------------------------------
 # ISPMonitorScheduler status
 # ---------------------------------------------------------------------------
 
-def test_scheduler_get_status():
+def test_scheduler_get_status(store):
     correlator = OutageCorrelator()
-    store = AlertStore()
-    # We can't instantiate a real manager without config, so just test status reporting
     scheduler = ISPMonitorScheduler(
         manager=None,
         correlator=correlator,
@@ -67,10 +85,9 @@ def test_scheduler_get_status():
     assert status["total_alerts"] == 0
 
 
-def test_scheduler_fire_alert():
+def test_scheduler_fire_alert(store):
     """Test the _fire_alert internal method directly."""
     correlator = OutageCorrelator()
-    store = AlertStore()
     scheduler = ISPMonitorScheduler(
         manager=None,
         correlator=correlator,
@@ -78,7 +95,6 @@ def test_scheduler_fire_alert():
         interval_seconds=60,
     )
 
-    # Simulate status change
     determination = {
         "weighted_down_score": 4.5,
         "confirmed_down": 2,
@@ -93,10 +109,9 @@ def test_scheduler_fire_alert():
     assert alerts[0]["new_status"] == "full_outage"
 
 
-def test_scheduler_fire_alert_resolved():
-    """When status returns to operational from outage → resolved severity."""
+def test_scheduler_fire_alert_resolved(store):
+    """When status returns to operational from outage -> resolved severity."""
     correlator = OutageCorrelator()
-    store = AlertStore()
     scheduler = ISPMonitorScheduler(
         manager=None,
         correlator=correlator,

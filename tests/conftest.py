@@ -5,6 +5,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.database import Base, get_db
+import app.models  # noqa: F401 — ensure all models are registered with Base before create_all
 
 # In-memory SQLite for tests — no PostgreSQL needed
 TEST_DATABASE_URL = "sqlite://"
@@ -35,8 +36,10 @@ def setup_db():
 
 @pytest.fixture
 def client():
-    from main import app
+    from main import app, alert_store
     app.dependency_overrides[get_db] = override_get_db
+    # Bind the alert store to the test DB so ISP alerts also go to SQLite
+    alert_store.bind(TestingSessionLocal)
     with TestClient(app) as c:
         yield c
     app.dependency_overrides.clear()
