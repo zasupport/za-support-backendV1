@@ -1,6 +1,7 @@
-from pydantic import BaseModel, EmailStr
-from typing import Optional, List
+from pydantic import BaseModel, EmailStr, Field
+from typing import Optional, List, Dict, Any
 from datetime import datetime
+from enum import Enum
 from app.models import UserRole, TicketStatus, TicketPriority, ChatSessionStatus, MessageType
 
 
@@ -122,6 +123,44 @@ class HealthOut(BaseModel):
     threat_score: int
 
     model_config = {"from_attributes": True}
+
+
+# --- ISP Outage Monitor ---
+
+class CheckMethod(str, Enum):
+    HTTP = "http"
+    PING = "ping"
+    STATUS_PAGE = "status_page"
+    DOWNDETECTOR = "downdetector"
+    AGENT = "agent"
+    CLOUDFLARE_RADAR = "cloudflare_radar"
+    IODA = "ioda"
+    RIPE_ATLAS = "ripe_atlas"
+    STATUSPAGE_API = "statuspage_api"
+    WEBHOOK = "webhook"
+    BGP_LOOKING_GLASS = "bgp_looking_glass"
+
+
+class ISPWebhookPayload(BaseModel):
+    isp: str
+    status: str
+    component: Optional[str] = None
+    description: Optional[str] = None
+    severity: Optional[str] = None
+    started_at: Optional[str] = None
+    resolved_at: Optional[str] = None
+    metadata: Dict[str, Any] = {}
+
+
+class ProviderHealthResponse(BaseModel):
+    provider: str
+    enabled: bool
+    isp: Optional[str] = None
+    is_down: bool = False
+    confidence: float = 0.0
+    details: str = ""
+    checked_at: Optional[str] = None
+    raw: Dict[str, Any] = {}
 
 
 # --- Network ---

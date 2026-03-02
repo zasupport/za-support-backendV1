@@ -9,6 +9,7 @@ from app.auth import hash_password
 from app.routes import api_router
 from app.config import PORT
 from agent_router import router as agent_router
+from router_networking import router as networking_router
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -65,6 +66,7 @@ app.add_middleware(
 # Mount all API routes
 app.include_router(api_router)
 app.include_router(agent_router)
+app.include_router(networking_router)
 
 
 @app.get("/")
@@ -83,6 +85,7 @@ async def root():
             "diagnostics": "/api/v1/diagnostics",
             "dashboard": "/api/v1/dashboard",
             "agent": "/api/v1/agent",
+            "isp_networking": "/api/v1/isp",
         },
     }
 
