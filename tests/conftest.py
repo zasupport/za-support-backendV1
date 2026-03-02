@@ -35,11 +35,32 @@ def setup_db():
 
 @pytest.fixture
 def client():
+    """Combined app (main.py) — all routes."""
     from main import app
     app.dependency_overrides[get_db] = override_get_db
     with TestClient(app) as c:
         yield c
     app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def v1_client():
+    """V1 app (main_v1.py) — support-desk routes only."""
+    from main_v1 import app as v1_app
+    v1_app.dependency_overrides[get_db] = override_get_db
+    with TestClient(v1_app) as c:
+        yield c
+    v1_app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def v3_client():
+    """V3 app (main_v3.py) — diagnostics routes only."""
+    from main_v3 import app as v3_app
+    v3_app.dependency_overrides[get_db] = override_get_db
+    with TestClient(v3_app) as c:
+        yield c
+    v3_app.dependency_overrides.clear()
 
 
 # --- Create users via the API so they go through the same DB session ---
