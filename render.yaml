@@ -1,7 +1,9 @@
 databases:
   - name: za-support-db
-    databaseName: zasupport
-    user: zasupport
+    databaseName: za_support_db
+    user: za_support
+    plan: basic-1gb
+    region: oregon
 
 services:
   - type: web
