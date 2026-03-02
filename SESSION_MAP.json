@@ -1,0 +1,47 @@
+{
+  "project": "ZA Support Platform",
+  "database": {
+    "name": "zasupport",
+    "provider": "Render PostgreSQL",
+    "render_name": "za-support-db",
+    "status": "active",
+    "note": "Single database shared by both sessions via DATABASE_URL"
+  },
+  "sessions": [
+    {
+      "id": "V1_HEALTH_CHECK",
+      "name": "ZA Support V1 — Full Health Check Software",
+      "repo": "zasupport/za-support-backendV1",
+      "render_service": "za-support-v1",
+      "description": "Complete support-desk backend: ticketing, real-time chat, user management, dashboard",
+      "modules": ["auth", "tickets", "chat", "dashboard", "diagnostics"],
+      "db_tables": ["users", "tickets", "chat_sessions", "chat_messages"],
+      "auth_method": "JWT Bearer tokens",
+      "status": "active"
+    },
+    {
+      "id": "V3_DIAGNOSTICS",
+      "name": "ZA Support V3 — Diagnostic Software",
+      "repo": "zasupport/za-diagnostics-v3 (to be created)",
+      "render_service": "za-diagnostics-v3",
+      "description": "Lightweight diagnostic agent backend: machine health telemetry, network monitoring",
+      "modules": ["auth", "health", "network", "diagnostics"],
+      "db_tables": ["users", "health_data", "network_data"],
+      "auth_method": "X-API-Key header",
+      "status": "to-be-extracted"
+    }
+  ],
+  "archived_branches": [
+    "claude/identify-database-chat-LxAki",
+    "claude/complete-system-LxAki",
+    "claude/fix-render-deploy-LxAki",
+    "master"
+  ],
+  "archived_services": [
+    {
+      "name": "Railway deployment",
+      "status": "removed",
+      "note": "Removed in PR #2 — Render is the sole deployment target"
+    }
+  ]
+}
