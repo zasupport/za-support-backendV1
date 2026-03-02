@@ -1,6 +1,7 @@
 __pycache__/
 *.pyc
 .env
+encryption_key.txt
 *.egg-info/
 dist/
 build/
