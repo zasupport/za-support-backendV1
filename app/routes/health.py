@@ -39,6 +39,7 @@ def submit_health(
 @router.get("/latest/{machine_id}", response_model=HealthOut)
 def get_latest_health(
     machine_id: str,
+    api_key: str = Depends(verify_api_key),
     db: Session = Depends(get_db),
 ):
     record = (
@@ -55,6 +56,7 @@ def get_latest_health(
 @router.get("/history/{machine_id}", response_model=list[HealthOut])
 def get_health_history(
     machine_id: str,
+    api_key: str = Depends(verify_api_key),
     limit: int = Query(50, ge=1, le=500),
     db: Session = Depends(get_db),
 ):
@@ -69,7 +71,10 @@ def get_health_history(
 
 
 @router.get("/machines")
-def list_machines(db: Session = Depends(get_db)):
+def list_machines(
+    api_key: str = Depends(verify_api_key),
+    db: Session = Depends(get_db),
+):
     """List all known machine IDs with their latest health data."""
     from sqlalchemy import func, distinct
 

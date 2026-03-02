@@ -1,13 +1,16 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 import logging
 
 from app.database import Base, engine, SessionLocal
 from app.models import User, UserRole
 from app.auth import hash_password
 from app.routes import api_router
-from app.config import PORT
+from app.routes.auth import limiter
+from app.config import PORT, ALLOWED_ORIGINS, ADMIN_PASSWORD, ENVIRONMENT
 from app.services.isp_scheduler import start_isp_scheduler, stop_isp_scheduler
 
 logging.basicConfig(level=logging.INFO)
@@ -41,34 +44,46 @@ async def lifespan(application: FastAPI):
 
 
 def _seed_admin():
-    """Create a default admin user if none exists."""
+    """Create a default admin user if none exists (requires ADMIN_PASSWORD env var)."""
     db = SessionLocal()
     try:
         if db.query(User).filter(User.role == UserRole.admin).first():
             return
+        if not ADMIN_PASSWORD:
+            logger.warning("No ADMIN_PASSWORD set — skipping admin seed")
+            return
         admin = User(
             email="admin@zasupport.com",
             username="admin",
-            hashed_password=hash_password("admin123"),
+            hashed_password=hash_password(ADMIN_PASSWORD),
             role=UserRole.admin,
         )
         db.add(admin)
         db.commit()
-        logger.info("Default admin user created (admin@zasupport.com / admin123)")
+        logger.info("Default admin user created (admin@zasupport.com)")
     finally:
         db.close()
 
+
+# Disable Swagger UI in production
+docs_url = "/docs" if ENVIRONMENT != "production" else None
+openapi_url = "/openapi.json" if ENVIRONMENT != "production" else None
 
 app = FastAPI(
     title="ZA Support Backend API",
     description="Complete support backend with tickets, real-time chat, health monitoring, and diagnostics",
     version="2.0.0",
     lifespan=lifespan,
+    docs_url=docs_url,
+    openapi_url=openapi_url,
 )
+
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -84,7 +99,6 @@ async def root():
         "service": "ZA Support Backend API",
         "version": "2.0.0",
         "status": "running",
-        "docs": "/docs",
         "endpoints": {
             "auth": "/api/v1/auth",
             "tickets": "/api/v1/tickets",

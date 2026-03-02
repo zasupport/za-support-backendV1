@@ -7,13 +7,21 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 
 from app.database import get_db
+from app.models import User, UserRole
+from app.auth import get_current_user
 
 router = APIRouter(prefix="/diagnostics", tags=["Diagnostics"])
 
 
 @router.get("/")
-def full_diagnostics(db: Session = Depends(get_db)):
-    """Complete system diagnostics — database, system, and application health."""
+def full_diagnostics(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Complete system diagnostics — database, system, and application health. Admin/agent only."""
+    if current_user.role not in (UserRole.agent, UserRole.admin):
+        from fastapi import HTTPException
+        raise HTTPException(status_code=403, detail="Not authorized")
     return {
         "timestamp": datetime.utcnow().isoformat(),
         "database": _check_database(db),
@@ -23,14 +31,23 @@ def full_diagnostics(db: Session = Depends(get_db)):
 
 
 @router.get("/db")
-def database_diagnostics(db: Session = Depends(get_db)):
-    """Database connectivity and table diagnostics."""
+def database_diagnostics(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Database connectivity and table diagnostics. Admin/agent only."""
+    if current_user.role not in (UserRole.agent, UserRole.admin):
+        from fastapi import HTTPException
+        raise HTTPException(status_code=403, detail="Not authorized")
     return _check_database(db)
 
 
 @router.get("/system")
-def system_diagnostics():
-    """System-level diagnostics (OS, platform, environment)."""
+def system_diagnostics(current_user: User = Depends(get_current_user)):
+    """System-level diagnostics (OS, platform, environment). Admin/agent only."""
+    if current_user.role not in (UserRole.agent, UserRole.admin):
+        from fastapi import HTTPException
+        raise HTTPException(status_code=403, detail="Not authorized")
     return _get_system_info()
 
 
@@ -97,7 +114,6 @@ def _get_system_info() -> dict:
         "platform": platform.platform(),
         "python_version": platform.python_version(),
         "processor": platform.processor(),
-        "hostname": platform.node(),
         "port": os.getenv("PORT", "8080"),
     }
 

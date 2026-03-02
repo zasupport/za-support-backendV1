@@ -1,16 +1,21 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 from app.database import get_db
-from app.models import User
+from app.models import User, UserRole
 from app.schemas import UserRegister, UserLogin, UserOut, Token
 from app.auth import hash_password, verify_password, create_access_token, get_current_user
+from app.config import ENVIRONMENT
 
+limiter = Limiter(key_func=get_remote_address, enabled=(ENVIRONMENT != "testing"))
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
 @router.post("/register", response_model=UserOut, status_code=status.HTTP_201_CREATED)
-def register(data: UserRegister, db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def register(request: Request, data: UserRegister, db: Session = Depends(get_db)):
     if db.query(User).filter(User.email == data.email).first():
         raise HTTPException(status_code=400, detail="Email already registered")
     if db.query(User).filter(User.username == data.username).first():
@@ -20,7 +25,7 @@ def register(data: UserRegister, db: Session = Depends(get_db)):
         email=data.email,
         username=data.username,
         hashed_password=hash_password(data.password),
-        role=data.role,
+        role=UserRole.customer,
     )
     db.add(user)
     db.commit()
@@ -29,7 +34,8 @@ def register(data: UserRegister, db: Session = Depends(get_db)):
 
 
 @router.post("/login", response_model=Token)
-def login(data: UserLogin, db: Session = Depends(get_db)):
+@limiter.limit("10/minute")
+def login(request: Request, data: UserLogin, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == data.email).first()
     if not user or not verify_password(data.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid email or password")

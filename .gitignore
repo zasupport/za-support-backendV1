@@ -6,3 +6,4 @@ dist/
 build/
 .venv/
 venv/
+encryption_key.txt

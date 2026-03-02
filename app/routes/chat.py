@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, status
+from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, Query, status
 from sqlalchemy.orm import Session
 from datetime import datetime
 from typing import Optional
@@ -9,6 +9,7 @@ from app.database import get_db, SessionLocal
 from app.models import ChatSession, ChatMessage, User, ChatSessionStatus, MessageType, UserRole
 from app.schemas import ChatSessionCreate, ChatSessionOut, ChatMessageCreate, ChatMessageOut
 from app.auth import get_current_user
+from app.config import SECRET_KEY, ALGORITHM
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +42,25 @@ class ConnectionManager:
 
 
 manager = ConnectionManager()
+
+
+def _authenticate_ws_token(token: str, db) -> Optional[User]:
+    """Validate a JWT token and return the user, or None if invalid."""
+    from jose import JWTError, jwt as jose_jwt
+
+    try:
+        payload = jose_jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        sub = payload.get("sub")
+        if sub is None:
+            return None
+        user_id = int(sub)
+    except (JWTError, ValueError):
+        return None
+
+    user = db.query(User).filter(User.id == user_id).first()
+    if user is None or not user.is_active:
+        return None
+    return user
 
 
 # --- REST endpoints ---
@@ -205,33 +225,42 @@ def send_message(
 # --- WebSocket endpoint for real-time chat ---
 
 @router.websocket("/ws/{session_id}")
-async def websocket_chat(websocket: WebSocket, session_id: int):
+async def websocket_chat(websocket: WebSocket, session_id: int, token: str = Query(...)):
     db = SessionLocal()
     try:
+        # Authenticate via JWT token query param
+        user = _authenticate_ws_token(token, db)
+        if not user:
+            await websocket.close(code=4001)
+            return
+
         session = db.query(ChatSession).filter(ChatSession.id == session_id).first()
         if not session or session.status == ChatSessionStatus.closed:
             await websocket.close(code=4004)
             return
 
+        # Verify user has access to this session
+        if user.role == UserRole.customer and session.user_id != user.id:
+            await websocket.close(code=4003)
+            return
+
         await manager.connect(websocket, session_id)
-        logger.info(f"WebSocket connected to session {session_id}")
+        logger.info(f"WebSocket connected: user {user.id} to session {session_id}")
 
         try:
             while True:
                 raw = await websocket.receive_text()
                 data = json.loads(raw)
 
-                sender_id = data.get("sender_id")
                 content = data.get("content", "")
-
-                if not sender_id or not content:
-                    await websocket.send_json({"error": "sender_id and content required"})
+                if not content:
+                    await websocket.send_json({"error": "content is required"})
                     continue
 
-                # Save message to database
+                # Always use the authenticated user's ID as sender
                 message = ChatMessage(
                     session_id=session_id,
-                    sender_id=sender_id,
+                    sender_id=user.id,
                     content=content,
                     message_type=MessageType.text,
                 )
@@ -251,6 +280,6 @@ async def websocket_chat(websocket: WebSocket, session_id: int):
 
         except WebSocketDisconnect:
             manager.disconnect(websocket, session_id)
-            logger.info(f"WebSocket disconnected from session {session_id}")
+            logger.info(f"WebSocket disconnected: user {user.id} from session {session_id}")
     finally:
         db.close()

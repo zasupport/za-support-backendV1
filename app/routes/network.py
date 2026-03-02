@@ -31,6 +31,7 @@ def submit_network(
 @router.get("/latest/{controller_id}", response_model=NetworkOut)
 def get_latest_network(
     controller_id: str,
+    api_key: str = Depends(verify_api_key),
     db: Session = Depends(get_db),
 ):
     record = (
@@ -47,6 +48,7 @@ def get_latest_network(
 @router.get("/history/{controller_id}", response_model=list[NetworkOut])
 def get_network_history(
     controller_id: str,
+    api_key: str = Depends(verify_api_key),
     limit: int = Query(50, ge=1, le=500),
     db: Session = Depends(get_db),
 ):
@@ -61,7 +63,10 @@ def get_network_history(
 
 
 @router.get("/controllers")
-def list_controllers(db: Session = Depends(get_db)):
+def list_controllers(
+    api_key: str = Depends(verify_api_key),
+    db: Session = Depends(get_db),
+):
     """List all known controller IDs with their latest network data."""
     from sqlalchemy import distinct
 
