@@ -18,6 +18,10 @@ services:
         fromDatabase:
           name: za-support-db
           property: connectionString
+      - key: V1_CORS_ORIGINS
+        sync: false
+      - key: ENCRYPTION_KEY
+        sync: false
 
   # V3 — Diagnostics (health + network telemetry)
   - type: web

@@ -204,8 +204,8 @@ DATABASE = {
 CLEANUP_CANDIDATES = [
     {
         "file": "encryption_key.txt",
-        "action": "MOVE TO ENV",
-        "reason": "Hardcoded key file should be an env var, not committed",
+        "action": "ALREADY REMOVED",
+        "reason": "Removed from repo; use ENCRYPTION_KEY env var on Render instead",
     },
     {
         "file": "main_integrated.py",
@@ -313,9 +313,9 @@ def run_audit():
         "   - Tables are cleanly separated by domain",
         "   - 'users' table is shared for authentication",
         "",
-        "5. MOVE encryption_key.txt value into Render env var",
-        "   - Remove the committed file from the repo",
-        "   - Set ENCRYPTION_KEY env var on Render dashboard",
+        "5. SET ENCRYPTION_KEY env var on Render dashboard",
+        "   - encryption_key.txt already removed from repo",
+        "   - ENCRYPTION_KEY declared in render.yaml (set value in Render UI)",
     ]
     for step in steps:
         print(f"  {step}")
