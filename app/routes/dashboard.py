@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 
 from app.database import get_db
-from app.models import User, Ticket, ChatSession, ChatMessage, HealthData, NetworkData
+from app.models import User, Ticket, ChatSession, ChatMessage, HealthData, NetworkData, Device, Alert, ISPProvider, ISPOutage
 from app.models import TicketStatus, UserRole, ChatSessionStatus
 from app.auth import get_current_user
 
@@ -67,5 +67,17 @@ def _admin_stats(db: Session) -> dict:
             "health_records": db.query(HealthData).count(),
             "controllers_tracked": db.query(func.count(func.distinct(NetworkData.controller_id))).scalar(),
             "network_records": db.query(NetworkData).count(),
+        },
+        "devices": {
+            "total": db.query(Device).count(),
+            "active": db.query(Device).filter(Device.is_active == True).count(),
+        },
+        "alerts": {
+            "total": db.query(Alert).count(),
+            "unresolved": db.query(Alert).filter(Alert.resolved == False).count(),
+        },
+        "isp": {
+            "providers": db.query(ISPProvider).filter(ISPProvider.is_active == True).count(),
+            "active_outages": db.query(ISPOutage).filter(ISPOutage.ended_at == None).count(),
         },
     }
