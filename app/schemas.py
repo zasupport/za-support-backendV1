@@ -17,6 +17,15 @@ class UserLogin(BaseModel):
     password: str
 
 
+class PasswordChange(BaseModel):
+    current_password: str
+    new_password: str
+
+
+class RoleUpdate(BaseModel):
+    role: UserRole
+
+
 class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"

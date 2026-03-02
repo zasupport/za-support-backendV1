@@ -82,3 +82,64 @@ def test_list_users_as_admin(client, admin_token, customer_user):
 def test_list_users_as_customer_forbidden(client, customer_token):
     resp = client.get("/api/v1/auth/users", headers=auth_header(customer_token))
     assert resp.status_code == 403
+
+
+# --- Password change ---
+
+def test_change_password(client, customer_token):
+    resp = client.put("/api/v1/auth/password", json={
+        "current_password": "customer123",
+        "new_password": "newpass456",
+    }, headers=auth_header(customer_token))
+    assert resp.status_code == 200
+
+    # Login with new password works
+    resp = client.post("/api/v1/auth/login", json={
+        "email": "customer@test.com", "password": "newpass456",
+    })
+    assert resp.status_code == 200
+
+
+def test_change_password_wrong_current(client, customer_token):
+    resp = client.put("/api/v1/auth/password", json={
+        "current_password": "wrongpass",
+        "new_password": "newpass456",
+    }, headers=auth_header(customer_token))
+    assert resp.status_code == 400
+
+
+# --- Admin role management ---
+
+def test_admin_change_user_role(client, admin_token, customer_user):
+    user_id = customer_user["id"]
+    resp = client.put(f"/api/v1/auth/users/{user_id}/role", json={
+        "role": "agent",
+    }, headers=auth_header(admin_token))
+    assert resp.status_code == 200
+    assert resp.json()["role"] == "agent"
+
+
+def test_customer_cannot_change_role(client, customer_token, admin_user):
+    user_id = admin_user["id"]
+    resp = client.put(f"/api/v1/auth/users/{user_id}/role", json={
+        "role": "customer",
+    }, headers=auth_header(customer_token))
+    assert resp.status_code == 403
+
+
+def test_admin_toggle_user_active(client, admin_token, customer_user):
+    user_id = customer_user["id"]
+    # Deactivate
+    resp = client.put(f"/api/v1/auth/users/{user_id}/active", headers=auth_header(admin_token))
+    assert resp.status_code == 200
+    assert resp.json()["is_active"] is False
+    # Reactivate
+    resp = client.put(f"/api/v1/auth/users/{user_id}/active", headers=auth_header(admin_token))
+    assert resp.status_code == 200
+    assert resp.json()["is_active"] is True
+
+
+def test_admin_cannot_deactivate_self(client, admin_token, admin_user):
+    user_id = admin_user["id"]
+    resp = client.put(f"/api/v1/auth/users/{user_id}/active", headers=auth_header(admin_token))
+    assert resp.status_code == 400
