@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import logging
 
 from app.database import Base, engine
-from app.config import PORT
+from app.config import V3_PORT, V3_CORS_ORIGINS
 
 from app.routes.auth import router as auth_router
 from app.routes.health import router as health_router
@@ -46,7 +46,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=V3_CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -80,4 +80,4 @@ if __name__ == "__main__":
     import uvicorn
 
     logger.info("ZA SUPPORT V3 — DIAGNOSTICS — STARTING")
-    uvicorn.run(app, host="0.0.0.0", port=PORT)
+    uvicorn.run(app, host="0.0.0.0", port=V3_PORT)

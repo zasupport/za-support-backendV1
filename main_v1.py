@@ -10,7 +10,7 @@ import logging
 from app.database import Base, engine, SessionLocal
 from app.models import User, UserRole
 from app.auth import hash_password
-from app.config import PORT
+from app.config import V1_PORT, V1_CORS_ORIGINS
 
 from app.routes.auth import router as auth_router
 from app.routes.tickets import router as tickets_router
@@ -69,7 +69,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=V1_CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -104,4 +104,4 @@ if __name__ == "__main__":
     import uvicorn
 
     logger.info("ZA SUPPORT V1 — FULL HEALTH CHECK — STARTING")
-    uvicorn.run(app, host="0.0.0.0", port=PORT)
+    uvicorn.run(app, host="0.0.0.0", port=V1_PORT)
