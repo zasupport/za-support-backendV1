@@ -1,17 +1,23 @@
 """
 ZA Support — ISP Outage Monitor: Networking Router
-FastAPI endpoints for ISP webhook reception, monitoring, and diagnostics.
+FastAPI endpoints for ISP webhook reception, monitoring, correlation, and alerts.
 
 Endpoints:
-  POST /api/v1/isp/webhooks/{isp_slug}         — receive ISP status webhooks
-  POST /api/v1/isp/webhooks/{isp_slug}/secret   — register webhook signing secrets
-  GET  /api/v1/isp/country-health               — SA-wide internet health overview
-  GET  /api/v1/isp/providers                     — list active/configured providers
-  GET  /api/v1/isp/isps/{isp_slug}/components   — Statuspage component breakdown
-  GET  /api/v1/isp/isps/{isp_slug}/maintenance  — scheduled maintenance windows
-  POST /api/v1/isp/isps/{isp_slug}/measure      — trigger on-demand RIPE Atlas measurement
-  GET  /api/v1/isp/isps/{isp_slug}/bgp          — BGP route visibility
-  GET  /api/v1/isp/isps/{isp_slug}/ioda-history — IODA time-series data
+  POST /api/v1/isp/webhooks/{isp_slug}              — receive ISP status webhooks
+  POST /api/v1/isp/webhooks/{isp_slug}/secret        — register webhook signing secrets
+  GET  /api/v1/isp/country-health                    — SA-wide internet health overview
+  GET  /api/v1/isp/providers                          — list active/configured providers
+  GET  /api/v1/isp/isps/{isp_slug}/components        — Statuspage component breakdown
+  GET  /api/v1/isp/isps/{isp_slug}/maintenance        — scheduled maintenance windows
+  POST /api/v1/isp/isps/{isp_slug}/measure            — trigger on-demand RIPE Atlas measurement
+  GET  /api/v1/isp/isps/{isp_slug}/bgp               — BGP route visibility
+  GET  /api/v1/isp/isps/{isp_slug}/ioda-history       — IODA time-series data
+  GET  /api/v1/isp/isps/{isp_slug}/full-check         — all providers concurrently
+  GET  /api/v1/isp/isps/{isp_slug}/correlate          — correlate signals into outage status
+  GET  /api/v1/isp/isps/{isp_slug}/correlation-history — check history
+  GET  /api/v1/isp/alerts                             — all recent alerts
+  GET  /api/v1/isp/alerts/{isp_slug}                  — alerts for a specific ISP
+  GET  /api/v1/isp/scheduler-status                   — background scheduler status
 
 Generated: 02/03/2026 SAST
 """
@@ -26,13 +32,15 @@ from networking_integrations import (
     NetworkingIntegrationManager,
     SA_ISP_ASNS,
 )
+from detection_engine import OutageCorrelator
 
 logger = logging.getLogger("router_networking")
 
 router = APIRouter(prefix="/api/v1/isp", tags=["isp-networking"])
 
-# Singleton manager — initialised once at import time
+# Singleton manager + correlator — initialised once at import time
 manager = NetworkingIntegrationManager()
+correlator = OutageCorrelator()
 
 
 # ---------------------------------------------------------------------------
@@ -165,3 +173,72 @@ async def isp_full_check(isp_slug: str):
     if isp_slug not in SA_ISP_ASNS:
         raise HTTPException(status_code=404, detail=f"Unknown ISP: {isp_slug}")
     return await manager.check_all(isp_slug)
+
+
+# ---------------------------------------------------------------------------
+# Outage correlation endpoints (detection_engine integration)
+# ---------------------------------------------------------------------------
+@router.get("/isps/{isp_slug}/correlate")
+async def correlate_isp(isp_slug: str):
+    """Run all providers, then correlate signals into an outage determination."""
+    if isp_slug not in SA_ISP_ASNS:
+        raise HTTPException(status_code=404, detail=f"Unknown ISP: {isp_slug}")
+
+    provider_results = await manager.check_all(isp_slug)
+    checks = correlator.check_networking_providers(isp_slug, provider_results)
+    determination = correlator.correlate(isp_slug, checks)
+    determination["provider_results"] = provider_results
+    return determination
+
+
+@router.get("/isps/{isp_slug}/correlation-history")
+async def isp_correlation_history(
+    isp_slug: str,
+    limit: int = Query(default=50, ge=1, le=500),
+):
+    """Get recent correlation check history for an ISP."""
+    if isp_slug not in SA_ISP_ASNS:
+        raise HTTPException(status_code=404, detail=f"Unknown ISP: {isp_slug}")
+    return {"isp": isp_slug, "history": correlator.get_history(isp_slug, limit=limit)}
+
+
+# ---------------------------------------------------------------------------
+# Alert + scheduler endpoints (wired from main.py at runtime)
+# ---------------------------------------------------------------------------
+# These use late-binding so they work even before main.py sets them up.
+_alert_store = None
+_isp_scheduler = None
+
+
+def bind_scheduler(alert_store, scheduler) -> None:
+    """Called from main.py after objects are constructed."""
+    global _alert_store, _isp_scheduler
+    _alert_store = alert_store
+    _isp_scheduler = scheduler
+
+
+@router.get("/alerts")
+async def list_all_alerts(limit: int = Query(default=100, ge=1, le=500)):
+    """Get all recent ISP outage alerts across every ISP."""
+    if _alert_store is None:
+        return {"alerts": [], "total": 0}
+    return {"alerts": _alert_store.get_all(limit=limit), "total": _alert_store.count()}
+
+
+@router.get("/alerts/{isp_slug}")
+async def list_isp_alerts(isp_slug: str, limit: int = Query(default=50, ge=1, le=500)):
+    """Get recent alerts for a specific ISP."""
+    if isp_slug not in SA_ISP_ASNS:
+        raise HTTPException(status_code=404, detail=f"Unknown ISP: {isp_slug}")
+    if _alert_store is None:
+        return {"isp": isp_slug, "alerts": [], "total": 0}
+    alerts = _alert_store.get(isp_slug, limit=limit)
+    return {"isp": isp_slug, "alerts": alerts, "total": len(alerts)}
+
+
+@router.get("/scheduler-status")
+async def scheduler_status():
+    """Get the background ISP monitor scheduler status."""
+    if _isp_scheduler is None:
+        return {"running": False, "message": "Scheduler not initialised"}
+    return _isp_scheduler.get_status()

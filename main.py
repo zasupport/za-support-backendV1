@@ -9,10 +9,21 @@ from app.auth import hash_password
 from app.routes import api_router
 from app.config import PORT
 from agent_router import router as agent_router
-from router_networking import router as networking_router
+from router_networking import router as networking_router, manager, correlator, bind_scheduler
+from scheduler import ISPMonitorScheduler, AlertStore
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Shared alert store + scheduler instance
+alert_store = AlertStore()
+isp_scheduler = ISPMonitorScheduler(
+    manager=manager,
+    correlator=correlator,
+    alert_store=alert_store,
+    interval_seconds=300,
+)
+bind_scheduler(alert_store, isp_scheduler)
 
 
 @asynccontextmanager
@@ -24,8 +35,10 @@ async def lifespan(application: FastAPI):
         _seed_admin()
     except Exception as e:
         logger.warning(f"Startup DB init skipped (DB may not be ready): {e}")
+    await isp_scheduler.start()
     yield
     # --- Shutdown ---
+    await isp_scheduler.stop()
     logger.info("ZA Support Backend shutting down")
 
 
@@ -50,8 +63,8 @@ def _seed_admin():
 
 app = FastAPI(
     title="ZA Support Backend API",
-    description="Complete support backend with tickets, real-time chat, health monitoring, and diagnostics",
-    version="2.0.0",
+    description="Complete support backend with tickets, real-time chat, health monitoring, ISP outage correlation, alerts, and background scheduling",
+    version="3.0.0",
     lifespan=lifespan,
 )
 
@@ -73,7 +86,7 @@ app.include_router(networking_router)
 async def root():
     return {
         "service": "ZA Support Backend API",
-        "version": "2.0.0",
+        "version": "3.0.0",
         "status": "running",
         "docs": "/docs",
         "endpoints": {
@@ -86,17 +99,20 @@ async def root():
             "dashboard": "/api/v1/dashboard",
             "agent": "/api/v1/agent",
             "isp_networking": "/api/v1/isp",
+            "isp_alerts": "/api/v1/isp/alerts",
+            "isp_correlation": "/api/v1/isp/isps/{isp_slug}/correlate",
+            "scheduler_status": "/api/v1/isp/scheduler-status",
         },
     }
 
 
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy", "service": "ZA Support Backend", "version": "2.0.0"}
+    return {"status": "healthy", "service": "ZA Support Backend", "version": "3.0.0"}
 
 
 if __name__ == "__main__":
     import uvicorn
 
-    logger.info("ZA SUPPORT BACKEND v2.0 STARTING")
+    logger.info("ZA SUPPORT BACKEND v3.0 STARTING")
     uvicorn.run(app, host="0.0.0.0", port=PORT)
