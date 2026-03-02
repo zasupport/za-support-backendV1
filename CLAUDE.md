@@ -3,14 +3,16 @@
 ## Project Identity
 
 This repo is **ZA Support V1 — Full Health Check Software**.
-It is the support-desk backend: ticketing, real-time chat, user management, dashboard.
+It is the comprehensive platform for paying and SLA clients: ticketing, real-time chat, user management, dashboard, and health-check monitoring.
 
 There are exactly **two products** in the ZA Support platform:
 
 | Session | Repo | Purpose |
 |---------|------|---------|
-| **V1 Full Health Check** | `za-support-backendV1` (this repo) | Support desk: tickets, chat, dashboard |
-| **V3 Diagnostics** | `za-diagnostics-v3` (to be extracted) | Machine/network telemetry agent |
+| **V1 Full Health Check** | `za-support-backendV1` (this repo) | Comprehensive client platform: tickets, chat, dashboard, monitoring |
+| **V3 Diagnostics** | `za-diagnostics-v3` (to be extracted) | Lightweight diagnostic agent that feeds data into V1 |
+
+V1 is the primary product. V3 Diagnostics exists to support the V1 platform.
 
 Both share a single **`zasupport` PostgreSQL database** on Render.
 See `SESSION_MAP.json` for the full module/table mapping.

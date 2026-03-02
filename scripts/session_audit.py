@@ -9,16 +9,17 @@ Analyses the current repository to identify:
   - Recommended actions (keep / archive / rename)
 
 Target state after consolidation:
-  SESSION 1 — "ZA Support V3 Diagnostics"
-      Lightweight diagnostic agent that runs on client machines.
-      Modules: diagnostics, health monitoring, network monitoring
-      DB tables: health_data, network_data
-
-  SESSION 2 — "ZA Support V1 Full Health Check"
-      Full support-desk backend (tickets, chat, users, dashboard).
-      Modules: auth, tickets, chat, dashboard
+  SESSION 1 — "ZA Support V1 Full Health Check"
+      The comprehensive platform for paying / SLA clients.
+      Modules: auth, tickets, chat, dashboard, diagnostics
       DB tables: users, tickets, chat_sessions, chat_messages
 
+  SESSION 2 — "ZA Support V3 Diagnostics"
+      Lightweight diagnostic agent that supports the V1 product.
+      Modules: health monitoring, network monitoring
+      DB tables: health_data, network_data
+
+V1 is the primary product. V3 feeds diagnostic data into V1.
 Both share the same 'zasupport' PostgreSQL database on Render.
 """
 
@@ -122,9 +123,10 @@ SESSIONS = {
     "V3_DIAGNOSTICS": {
         "display_name": "ZA Support V3 — Diagnostic Software",
         "description": (
-            "Lightweight diagnostic agent backend. Receives telemetry "
-            "from client machines (CPU, memory, disk, threats) and network "
-            "controllers. Provides real-time and historical monitoring."
+            "Lightweight diagnostic agent that supports the V1 platform. "
+            "Receives telemetry from client machines (CPU, memory, disk, "
+            "threats) and network controllers to feed the V1 health-check "
+            "product."
         ),
         "primary_modules": ["Health Monitoring", "Network Monitoring"],
         "shared_modules": ["Auth", "Diagnostics"],
@@ -136,9 +138,10 @@ SESSIONS = {
     "V1_HEALTH_CHECK": {
         "display_name": "ZA Support V1 — Full Health Check Software",
         "description": (
-            "Complete support-desk backend with ticketing, real-time chat, "
-            "user management, and an admin dashboard. The central hub for "
-            "customer support and issue resolution."
+            "The comprehensive platform for paying and SLA clients. "
+            "Includes ticketing, real-time chat, user management, admin "
+            "dashboard, and health-check monitoring. V3 Diagnostics "
+            "feeds data into this product."
         ),
         "primary_modules": ["Tickets", "Chat", "Dashboard"],
         "shared_modules": ["Auth", "Diagnostics"],
