@@ -17,7 +17,7 @@ from typing import Any, Dict, List, Optional
 
 from sqlalchemy.orm import Session
 
-from detection_engine import OutageCorrelator, OutageStatus
+from app.services.detection_engine import OutageCorrelator, OutageStatus
 
 logger = logging.getLogger("scheduler")
 
@@ -154,7 +154,7 @@ class ISPMonitorScheduler:
         logger.info("ISP monitor scheduler stopped")
 
     async def _loop(self) -> None:
-        from networking_integrations import SA_ISP_ASNS
+        from app.services.networking_integrations import SA_ISP_ASNS
 
         while self._running:
             self._cycle_count += 1

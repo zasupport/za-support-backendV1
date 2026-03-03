@@ -28,11 +28,11 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
-from networking_integrations import (
+from app.services.networking_integrations import (
     NetworkingIntegrationManager,
     SA_ISP_ASNS,
 )
-from detection_engine import OutageCorrelator
+from app.services.detection_engine import OutageCorrelator
 
 logger = logging.getLogger("router_networking")
 

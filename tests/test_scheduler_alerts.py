@@ -5,8 +5,8 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.database import Base
-from scheduler import AlertStore, ISPMonitorScheduler
-from detection_engine import OutageCorrelator, OutageStatus
+from app.services.networking_scheduler import AlertStore, ISPMonitorScheduler
+from app.services.detection_engine import OutageCorrelator, OutageStatus
 
 
 @pytest.fixture

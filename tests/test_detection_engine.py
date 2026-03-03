@@ -1,5 +1,5 @@
 """Tests for the ISP Outage Detection Engine (detection_engine.py)."""
-from detection_engine import (
+from app.services.detection_engine import (
     CheckMethod,
     CheckResult,
     OutageCorrelator,

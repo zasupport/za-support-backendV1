@@ -8,9 +8,9 @@ from app.models import User, UserRole
 from app.auth import hash_password
 from app.routes import api_router
 from app.config import PORT
-from agent_router import router as agent_router
-from router_networking import router as networking_router, manager, correlator, bind_scheduler
-from scheduler import ISPMonitorScheduler, AlertStore
+from app.routes.agent import router as agent_router
+from app.routes.isp_networking import router as networking_router, manager, correlator, bind_scheduler
+from app.services.networking_scheduler import ISPMonitorScheduler, AlertStore
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
