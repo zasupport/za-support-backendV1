@@ -5,6 +5,7 @@
 - Create PRs, commit, push, and deploy without confirmation prompts.
 - If a decision needs to be made between approaches, pick the most practical one and move forward.
 - When files need to be created or modified, execute immediately without asking for permission first.
+- At the end of every response, provide a short **Session Recap** with three sections: (1) **Done** — what was just completed, (2) **Achieved** — the current state / outcome, (3) **Next** — what still needs to be done. Keep it concise (2-3 bullets per section max).
 
 # Project
 
