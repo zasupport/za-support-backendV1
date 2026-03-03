@@ -5,6 +5,7 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 import logging
 
+from sqlalchemy import inspect, text
 from app.database import Base, engine, SessionLocal
 from app.models import User, UserRole
 from app.auth import hash_password
@@ -23,6 +24,7 @@ async def lifespan(application: FastAPI):
     try:
         Base.metadata.create_all(bind=engine)
         logger.info("Database tables created")
+        _migrate_columns()
         _seed_admin()
     except Exception as e:
         logger.warning(f"Startup DB init skipped (DB may not be ready): {e}")
@@ -41,6 +43,46 @@ async def lifespan(application: FastAPI):
     except Exception:
         pass
     logger.info("ZA Support Backend shutting down")
+
+
+def _migrate_columns():
+    """Add any missing columns to existing tables so models match the live schema."""
+    inspector = inspect(engine)
+    with engine.begin() as conn:
+        for table in Base.metadata.sorted_tables:
+            if not inspector.has_table(table.name):
+                continue
+            existing = {c["name"] for c in inspector.get_columns(table.name)}
+            for col in table.columns:
+                if col.name not in existing:
+                    col_type = col.type.compile(dialect=engine.dialect)
+                    nullable = "NULL" if col.nullable else "NOT NULL"
+                    default = ""
+                    if col.default is not None and col.default.arg is not None:
+                        val = col.default.arg
+                        if isinstance(val, bool):
+                            default = f" DEFAULT {str(val).upper()}"
+                        elif isinstance(val, (int, float)):
+                            default = f" DEFAULT {val}"
+                        elif isinstance(val, str):
+                            default = f" DEFAULT '{val}'"
+                    stmt = f'ALTER TABLE "{table.name}" ADD COLUMN "{col.name}" {col_type} {nullable}{default}'
+                    conn.execute(text(stmt))
+                    logger.info(f"Added column {table.name}.{col.name}")
+
+    # Ensure any orphan health_data rows have a matching device (FK constraint)
+    if inspector.has_table("health_data") and inspector.has_table("devices"):
+        orphans = conn.execute(text(
+            "SELECT DISTINCT h.machine_id FROM health_data h "
+            "LEFT JOIN devices d ON h.machine_id = d.machine_id "
+            "WHERE d.machine_id IS NULL"
+        )).fetchall()
+        for (mid,) in orphans:
+            conn.execute(text(
+                "INSERT INTO devices (machine_id, device_type, is_active) "
+                "VALUES (:mid, 'other', true)"
+            ), {"mid": mid})
+            logger.info(f"Auto-registered orphan device: {mid}")
 
 
 def _seed_admin():
