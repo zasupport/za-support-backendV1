@@ -8,7 +8,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from app.core.config import settings
 from app.core.database import get_engine, Base
-from app.api import health, devices, network, alerts, dashboard, diagnostics
+from app.api import health, devices, network, alerts, dashboard, diagnostics, isp, agent
+from app.services.isp_scheduler import start_isp_scheduler, stop_isp_scheduler
 import logging
 
 logging.basicConfig(level=logging.INFO)
@@ -21,7 +22,9 @@ async def lifespan(app: FastAPI):
     logger.info("Starting ZA Support Backend v11.1...")
     Base.metadata.create_all(bind=get_engine())
     logger.info("Database tables verified.")
+    start_isp_scheduler()
     yield
+    stop_isp_scheduler()
     logger.info("Shutting down ZA Support Backend v11.1.")
 
 
@@ -47,6 +50,8 @@ app.include_router(network.router, prefix="/api/v1/network", tags=["Network"])
 app.include_router(alerts.router, prefix="/api/v1/alerts", tags=["Alerts"])
 app.include_router(dashboard.router, prefix="/api/v1/dashboard", tags=["Dashboard"])
 app.include_router(diagnostics.router, prefix="/api/v1/diagnostics", tags=["Diagnostics"])
+app.include_router(isp.router, prefix="/api/v1/isp", tags=["ISP Monitor"])
+app.include_router(agent.router, prefix="/api/v1/agent", tags=["Agent"])
 
 
 @app.get("/", tags=["Root"])
@@ -63,6 +68,8 @@ async def root():
             "alerts": "/api/v1/alerts",
             "dashboard": "/api/v1/dashboard",
             "network": "/api/v1/network",
+            "isp": "/api/v1/isp",
+            "agent": "/api/v1/agent",
         }
     }
 

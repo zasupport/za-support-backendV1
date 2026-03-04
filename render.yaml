@@ -16,9 +16,24 @@ services:
         generateValue: true
       - key: PORT
         value: "8080"
+      - key: REDIS_URL
+        fromService:
+          name: zasupport-redis
+          type: redis
+          property: connectionURI
+      - key: ISP_MONITOR_ENABLED
+        value: "true"
+      - key: AGENT_AUTH_TOKEN
+        value: "fTiuW8z2Aspb8O0Q0kqEr8U7Fe3iIwXdmNmWqP7XOrOs88Pv8teOwpplf_6y0SYU"
 
 databases:
   - name: zasupportdb
     plan: free
+    region: frankfurt
+    ipAllowList: []
+
+redis:
+  - name: zasupport-redis
+    plan: starter
     region: frankfurt
     ipAllowList: []
