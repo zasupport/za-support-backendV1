@@ -1,20 +1,3 @@
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, declarative_base
-from app.config import DATABASE_URL
-
-engine = create_engine(DATABASE_URL)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
-
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-
-def get_session_factory():
-    """Return the SessionLocal factory (used by background schedulers)."""
-    return SessionLocal
+# Backward-compat shim — all database now lives in app.core.database
+from app.core.database import *  # noqa: F401,F403
+from app.core.database import Base, engine, SessionLocal, get_db, get_session_factory  # noqa: F401

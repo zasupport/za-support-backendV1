@@ -6,13 +6,24 @@ from slowapi.errors import RateLimitExceeded
 import logging
 
 from sqlalchemy import inspect, text
-from app.database import Base, engine, SessionLocal
-from app.models import User, UserRole
-from app.auth import hash_password
-from app.routes import api_router
-from app.routes.auth import limiter
-from app.config import PORT, ALLOWED_ORIGINS, ADMIN_PASSWORD, ENVIRONMENT
-from app.services.isp_scheduler import start_isp_scheduler, stop_isp_scheduler
+from app.core.database import Base, engine, SessionLocal
+from app.core.auth import hash_password
+from app.core.config import PORT, ALLOWED_ORIGINS, ADMIN_PASSWORD, ENVIRONMENT
+
+# Import all module models so SQLAlchemy discovers them for create_all()
+from app.modules.auth.models import User, UserRole
+from app.modules.tickets.models import Ticket  # noqa: F401
+from app.modules.chat.models import ChatSession, ChatMessage  # noqa: F401
+from app.modules.devices.models import Device  # noqa: F401
+from app.modules.health.models import HealthData  # noqa: F401
+from app.modules.network.models import NetworkData  # noqa: F401
+from app.modules.alerts.models import Alert  # noqa: F401
+from app.modules.diagnostics.models import WorkshopDiagnostic  # noqa: F401
+from app.modules.isp.models import ISPProvider, ISPStatusCheck, AgentConnectivity, ISPOutage  # noqa: F401
+
+from app.modules import api_router
+from app.modules.auth.router import limiter
+from app.modules.isp.scheduler import start_isp_scheduler, stop_isp_scheduler
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -72,17 +83,18 @@ def _migrate_columns():
 
     # Ensure any orphan health_data rows have a matching device (FK constraint)
     if inspector.has_table("health_data") and inspector.has_table("devices"):
-        orphans = conn.execute(text(
-            "SELECT DISTINCT h.machine_id FROM health_data h "
-            "LEFT JOIN devices d ON h.machine_id = d.machine_id "
-            "WHERE d.machine_id IS NULL"
-        )).fetchall()
-        for (mid,) in orphans:
-            conn.execute(text(
-                "INSERT INTO devices (machine_id, device_type, is_active) "
-                "VALUES (:mid, 'other', true)"
-            ), {"mid": mid})
-            logger.info(f"Auto-registered orphan device: {mid}")
+        with engine.begin() as conn:
+            orphans = conn.execute(text(
+                "SELECT DISTINCT h.machine_id FROM health_data h "
+                "LEFT JOIN devices d ON h.machine_id = d.machine_id "
+                "WHERE d.machine_id IS NULL"
+            )).fetchall()
+            for (mid,) in orphans:
+                conn.execute(text(
+                    "INSERT INTO devices (machine_id, device_type, is_active) "
+                    "VALUES (:mid, 'other', true)"
+                ), {"mid": mid})
+                logger.info(f"Auto-registered orphan device: {mid}")
 
 
 def _seed_admin():
@@ -112,9 +124,9 @@ docs_url = "/docs" if ENVIRONMENT != "production" else None
 openapi_url = "/openapi.json" if ENVIRONMENT != "production" else None
 
 app = FastAPI(
-    title="ZA Support Backend API",
-    description="Complete support backend with tickets, real-time chat, health monitoring, and diagnostics",
-    version="2.0.0",
+    title="V11 Health Check — ZA Support API",
+    description="Modular backend: health monitoring, device management, support tickets, real-time chat, ISP outage detection, and diagnostics",
+    version="3.0.0",
     lifespan=lifespan,
     docs_url=docs_url,
     openapi_url=openapi_url,
@@ -131,16 +143,22 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Mount all API routes
+# Mount all module routes
 app.include_router(api_router)
 
 
 @app.get("/")
 async def root():
     return {
-        "service": "ZA Support Backend API",
-        "version": "2.0.0",
+        "service": "V11 Health Check — ZA Support API",
+        "version": "3.0.0",
+        "architecture": "modular",
         "status": "running",
+        "modules": {
+            "core": ["auth", "devices", "health", "alerts", "diagnostics", "dashboard"],
+            "support": ["tickets", "chat"],
+            "monitoring": ["network", "isp"],
+        },
         "endpoints": {
             "auth": "/api/v1/auth",
             "tickets": "/api/v1/tickets",
@@ -158,11 +176,11 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy", "service": "ZA Support Backend", "version": "2.0.0"}
+    return {"status": "healthy", "service": "V11 Health Check", "version": "3.0.0"}
 
 
 if __name__ == "__main__":
     import uvicorn
 
-    logger.info("ZA SUPPORT BACKEND v2.0 STARTING")
+    logger.info("V11 HEALTH CHECK — ZA SUPPORT API v3.0 STARTING")
     uvicorn.run(app, host="0.0.0.0", port=PORT)
