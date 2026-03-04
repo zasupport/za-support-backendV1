@@ -291,7 +291,7 @@ def _seed_initial_events(db: Session):
         ("system.redis_ready", "system", "info", "Redis connection established"),
         ("system.cors_configured", "system", "info", "CORS configured for zasupport.com"),
         ("system.auth_active", "system", "info", "API key + agent token authentication active"),
-        ("system.encryption_pending", "system", "warning", "Payload encryption not yet implemented"),
+        ("system.encryption_active", "system", "info", "Fernet payload encryption active for sensitive data"),
         ("system.retention_policy", "system", "info", "Data retention: 90d detailed, 2yr aggregated"),
         ("compliance.popia_ready", "compliance", "info", "POPIA compliance controls active"),
         ("client.dr_shoul", "system", "info", "Client configured: Dr Evan Shoul (Stem ISP)"),
