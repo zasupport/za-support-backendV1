@@ -137,8 +137,38 @@ def _event_cleanup(db: Session):
 
 
 def _heartbeat_rollup(db: Session):
-    """Placeholder for heartbeat data aggregation/rollup."""
-    logger.info("[HeartbeatRollup] Rollup placeholder — not yet implemented.")
+    """Refresh TimescaleDB continuous aggregate and log daily heartbeat stats.
+
+    The 15-minute continuous aggregate (agent_heartbeats_15m) auto-refreshes
+    via TimescaleDB policy, but this daily job forces a full refresh of any
+    lagging buckets and logs summary stats for observability.
+    """
+    from sqlalchemy import text
+
+    try:
+        # Force-refresh any lagging buckets from the last 48 hours
+        db.execute(text(
+            "CALL refresh_continuous_aggregate('agent_heartbeats_15m', "
+            "NOW() - INTERVAL '48 hours', NOW())"
+        ))
+        db.commit()
+
+        # Log daily summary stats
+        result = db.execute(text(
+            "SELECT COUNT(DISTINCT serial) AS devices, COUNT(*) AS total_heartbeats "
+            "FROM agent_heartbeats "
+            "WHERE timestamp > NOW() - INTERVAL '24 hours'"
+        )).fetchone()
+
+        devices = result[0] if result else 0
+        total = result[1] if result else 0
+        logger.info(
+            f"[HeartbeatRollup] Refreshed aggregate. "
+            f"Last 24h: {devices} devices, {total} heartbeats."
+        )
+    except Exception as e:
+        # TimescaleDB may not be available in dev/test environments
+        logger.warning(f"[HeartbeatRollup] Skipped (TimescaleDB not available): {e}")
 
 
 # Map job_ids to their actual functions

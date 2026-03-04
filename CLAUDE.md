@@ -1,13 +1,13 @@
 # Health Check v11
 
 ## Stack
-- FastAPI backend, PostgreSQL + TimescaleDB, Redis, asyncpg, httpx
+- FastAPI backend, PostgreSQL + TimescaleDB, Redis, psycopg2, httpx
 - Deployed on Render
 - Agent runs on client macOS devices, reports every 60s
 
 ## Key Modules
-- ISP Outage Monitor: `/isp_outage_monitor/`, API prefix `/api/v1/isp/`
-- Agent connectivity: `agent_connectivity.py`
+- ISP Outage Monitor: `app/api/isp.py` + `app/services/isp_monitor.py`, API prefix `/api/v1/isp/`
+- Agent connectivity: `app/api/agent.py` + `app/models/models.py:AgentConnectivity`
 - 4-layer detection: Status page scraper, Downdetector ZA, HTTP probe, agent connectivity
 
 ## Database
