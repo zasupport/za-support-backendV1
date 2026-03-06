@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 from typing import Optional, List
 
 from app.core.database import get_db
+from app.core.config import settings
 from app.models.models import SystemEvent, ScheduledJob, NotificationLog
 
 router = APIRouter()
@@ -107,7 +108,7 @@ def automation_status(db: Session = Depends(get_db)):
 
     return {
         "status": "operational",
-        "version": "11.2.0",
+        "version": settings.VERSION,
         "automation_layer": True,
         "total_events": total_events,
         "total_jobs": total_jobs,

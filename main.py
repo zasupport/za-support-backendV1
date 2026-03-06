@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup/shutdown lifecycle."""
-    logger.info("Starting ZA Support Backend v11.2...")
+    logger.info(f"Starting ZA Support Backend v{settings.VERSION}...")
     Base.metadata.create_all(bind=get_engine())
     logger.info("Database tables verified.")
     start_isp_scheduler()
@@ -29,12 +29,12 @@ async def lifespan(app: FastAPI):
     yield
     stop_automation_scheduler()
     stop_isp_scheduler()
-    logger.info("Shutting down ZA Support Backend v11.2.")
+    logger.info(f"Shutting down ZA Support Backend v{settings.VERSION}.")
 
 
 app = FastAPI(
     title="ZA Support Health Check API",
-    version="11.2.0",
+    version=settings.VERSION,
     description="Device health monitoring, diagnostic ingestion, automation layer, and predictive alerting for ZA Support clients.",
     lifespan=lifespan,
 )
@@ -63,7 +63,7 @@ app.include_router(system.router, prefix="/api/v1/system", tags=["System"])
 async def root():
     return {
         "service": "ZA Support Health Check API",
-        "version": "11.2.0",
+        "version": settings.VERSION,
         "status": "running",
         "docs": "/docs",
         "endpoints": {

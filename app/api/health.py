@@ -4,6 +4,7 @@ Service health endpoint — used by Render, uptime monitors, and load balancers.
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from sqlalchemy import text
+from app.core.config import settings
 from app.core.database import get_db
 
 router = APIRouter()
@@ -21,6 +22,6 @@ async def service_health(db: Session = Depends(get_db)):
     return {
         "status": "healthy" if db_status == "connected" else "degraded",
         "service": "ZA Support Health Check API",
-        "version": "11.1.0",
+        "version": settings.VERSION,
         "database": db_status,
     }
