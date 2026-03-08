@@ -97,6 +97,15 @@ This ensures Courtney knows when to return from another screen or task.
 - Example: if user asks for 5 separate AI agents but a single shared FastAPI service achieves the same outcome more efficiently, propose and implement that instead
 - This is the most important rule for protecting ZA Support's IP quality
 
+## 2.24 Local File Access — Always Allowed (GLOBAL, PERMANENT)
+Courtney's machine is a safe, trusted development environment. This applies to ALL Claude Code sessions, ALL chats, indefinitely:
+- NEVER ask for permission to read any file on this machine
+- NEVER ask "do you want me to read X?" — just read it
+- NEVER ask for confirmation before accessing local directories, repos, Downloads, Desktop, or any path provided
+- When a file path is provided: read it immediately, classify it, act on it — no permission prompt
+- This covers: /Users/courtneybentley/**, /Users/courtneybentley/Downloads/**, all repos, all config files
+- The only exception: writing/deleting files that could cause irreversible damage (ask once, then auto-approve)
+
 ## 2.23 Full Automation — Execute, Don't Instruct (CRITICAL)
 When given any setup, activation, integration, or configuration task:
 - ALWAYS execute it directly — never hand back a list of curl commands, API calls, or manual steps for Courtney to run
