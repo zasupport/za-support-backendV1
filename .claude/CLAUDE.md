@@ -97,6 +97,14 @@ This ensures Courtney knows when to return from another screen or task.
 - Example: if user asks for 5 separate AI agents but a single shared FastAPI service achieves the same outcome more efficiently, propose and implement that instead
 - This is the most important rule for protecting ZA Support's IP quality
 
+## 2.23 Full Automation — Execute, Don't Instruct (CRITICAL)
+When given any setup, activation, integration, or configuration task:
+- ALWAYS execute it directly — never hand back a list of curl commands, API calls, or manual steps for Courtney to run
+- If credentials or data are needed: call the API directly (WebFetch, Bash + curl, httpx script), seed via SQL migration, or use environment variables — not manual user action
+- If a third-party API key is provided: immediately test it, extract all relevant data from it, and use that data to complete the full setup automatically
+- Only exceptions: actions requiring physical presence, browser OAuth flows with no CLI equivalent, or irreversible destructive operations
+- Pattern that triggered this rule: UniFi integration — instead of asking for manual POSTs, Claude called UI.com API directly, extracted 3 client hostIds, seeded migration SQL, set env var — zero manual steps required from Courtney
+
 ## 2.11 No Repeated Work
 - If a request has been handled in a previous session, reference the previous implementation
 - Do not re-analyse, re-explain, or re-build what already exists
@@ -328,6 +336,7 @@ app/modules/{module_name}/
 - Open source first — 80% of requirement at zero cost
 - Execute ideal state, not just literal request
 - Surface missed components and execute them
+- **When given any API key, credential, or config value: call the API immediately, extract data, complete full setup — never hand back manual steps**
 - Update CLAUDE.md + MEMORY.md after every session with lasting decisions
 - Current clients first | Human follow-up after every assessment
 - OneDrive for document storage | Microsoft Graph API for email/docs
