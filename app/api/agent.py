@@ -10,12 +10,13 @@ Endpoints:
 """
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import desc, text
+from sqlalchemy import desc, func, text
 from datetime import datetime, timedelta
 from typing import List
 import logging
 
 from app.core.database import get_db
+from app.core.config import settings
 from app.core.agent_auth import verify_agent_token
 from app.models.models import AgentHeartbeatRecord, DiagnosticReport
 from app.models.schemas import (
@@ -28,6 +29,22 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 ONLINE_THRESHOLD_SECONDS = 120  # device considered online if heartbeat within 2 min
+
+
+def _to_device_status(record: AgentHeartbeatRecord) -> AgentDeviceStatus:
+    """Build AgentDeviceStatus from a heartbeat record."""
+    cutoff = datetime.utcnow() - timedelta(seconds=ONLINE_THRESHOLD_SECONDS)
+    return AgentDeviceStatus(
+        serial=record.serial,
+        hostname=record.hostname,
+        client_id=record.client_id,
+        last_seen=record.timestamp,
+        cpu_load=record.cpu_load,
+        memory_pressure=record.memory_pressure,
+        disk_used_pct=record.disk_used_pct,
+        battery=record.battery,
+        online=record.timestamp >= cutoff if record.timestamp else False,
+    )
 
 
 # ---------- Health (no auth) ----------
@@ -44,6 +61,7 @@ async def agent_health(db: Session = Depends(get_db)):
     return {
         "status": "healthy" if db_ok else "degraded",
         "subsystem": "agent_router",
+        "version": settings.VERSION,
         "database": "connected" if db_ok else "disconnected",
     }
 
@@ -114,10 +132,7 @@ async def list_agent_devices(
     _: str = Depends(verify_agent_token),
 ):
     """List devices with their latest heartbeat status."""
-    cutoff = datetime.utcnow() - timedelta(seconds=ONLINE_THRESHOLD_SECONDS)
-
     # Subquery: latest heartbeat per serial
-    from sqlalchemy import func
     latest_sub = (
         db.query(
             AgentHeartbeatRecord.serial,
@@ -136,20 +151,7 @@ async def list_agent_devices(
         .all()
     )
 
-    return [
-        AgentDeviceStatus(
-            serial=r.serial,
-            hostname=r.hostname,
-            client_id=r.client_id,
-            last_seen=r.timestamp,
-            cpu_load=r.cpu_load,
-            memory_pressure=r.memory_pressure,
-            disk_used_pct=r.disk_used_pct,
-            battery=r.battery,
-            online=r.timestamp >= cutoff if r.timestamp else False,
-        )
-        for r in records
-    ]
+    return [_to_device_status(r) for r in records]
 
 
 # ---------- Single Device Status ----------
@@ -170,15 +172,4 @@ async def get_agent_device(
     if not record:
         raise HTTPException(status_code=404, detail=f"No heartbeat found for serial {serial}")
 
-    cutoff = datetime.utcnow() - timedelta(seconds=ONLINE_THRESHOLD_SECONDS)
-    return AgentDeviceStatus(
-        serial=record.serial,
-        hostname=record.hostname,
-        client_id=record.client_id,
-        last_seen=record.timestamp,
-        cpu_load=record.cpu_load,
-        memory_pressure=record.memory_pressure,
-        disk_used_pct=record.disk_used_pct,
-        battery=record.battery,
-        online=record.timestamp >= cutoff if record.timestamp else False,
-    )
+    return _to_device_status(record)

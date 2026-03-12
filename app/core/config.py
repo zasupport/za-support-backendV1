@@ -15,6 +15,7 @@ class Settings:
     API_KEY: str = os.getenv("API_KEY", "")
     ENCRYPTION_KEY: str = os.getenv("ENCRYPTION_KEY", "")
     AGENT_AUTH_TOKEN: str = os.getenv("AGENT_AUTH_TOKEN", "")
+    AGENT_AUTH_TOKEN_OLD: str = os.getenv("AGENT_AUTH_TOKEN_OLD", "")
     
     # --- Server ---
     PORT: str = os.getenv("PORT", "8080")
@@ -39,6 +40,9 @@ class Settings:
     # --- Data Retention ---
     DETAILED_RETENTION_DAYS: int = 90
     AGGREGATED_RETENTION_YEARS: int = 2
+
+    # --- App Version (single source of truth) ---
+    VERSION: str = "11.2.0"
 
     # --- ISP Outage Monitor ---
     ISP_MONITOR_ENABLED: bool = os.getenv("ISP_MONITOR_ENABLED", "false").lower() == "true"

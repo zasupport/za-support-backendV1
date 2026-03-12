@@ -3,11 +3,12 @@ Automation scheduler — manages all scheduled jobs for the automation layer.
 Registers jobs in the database for visibility via /api/v1/system/jobs.
 """
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.core.database import get_session_factory
 from app.models.models import ScheduledJob
 from app.services import event_bus, notification_engine
@@ -77,7 +78,7 @@ def _run_job(job_id: str, func):
 def _stale_device_check(db: Session):
     """Flag devices not seen in 24 hours."""
     from app.models.models import Device
-    threshold = datetime.utcnow() - __import__("datetime").timedelta(hours=24)
+    threshold = datetime.utcnow() - timedelta(hours=24)
     stale = db.query(Device).filter(
         Device.is_active == True,
         Device.last_seen < threshold,
@@ -131,14 +132,44 @@ def _security_posture_scan(db: Session):
 def _event_cleanup(db: Session):
     """Remove system events older than 90 days."""
     from app.models.models import SystemEvent
-    cutoff = datetime.utcnow() - __import__("datetime").timedelta(days=90)
+    cutoff = datetime.utcnow() - timedelta(days=90)
     deleted = db.query(SystemEvent).filter(SystemEvent.created_at < cutoff).delete()
     logger.info(f"[EventCleanup] Removed {deleted} events older than 90 days.")
 
 
 def _heartbeat_rollup(db: Session):
-    """Placeholder for heartbeat data aggregation/rollup."""
-    logger.info("[HeartbeatRollup] Rollup placeholder — not yet implemented.")
+    """Refresh TimescaleDB continuous aggregate and log daily heartbeat stats.
+
+    The 15-minute continuous aggregate (agent_heartbeats_15m) auto-refreshes
+    via TimescaleDB policy, but this daily job forces a full refresh of any
+    lagging buckets and logs summary stats for observability.
+    """
+    from sqlalchemy import text
+
+    try:
+        # Force-refresh any lagging buckets from the last 48 hours
+        db.execute(text(
+            "CALL refresh_continuous_aggregate('agent_heartbeats_15m', "
+            "NOW() - INTERVAL '48 hours', NOW())"
+        ))
+        db.commit()
+
+        # Log daily summary stats
+        result = db.execute(text(
+            "SELECT COUNT(DISTINCT serial) AS devices, COUNT(*) AS total_heartbeats "
+            "FROM agent_heartbeats "
+            "WHERE timestamp > NOW() - INTERVAL '24 hours'"
+        )).fetchone()
+
+        devices = result[0] if result else 0
+        total = result[1] if result else 0
+        logger.info(
+            f"[HeartbeatRollup] Refreshed aggregate. "
+            f"Last 24h: {devices} devices, {total} heartbeats."
+        )
+    except Exception as e:
+        # TimescaleDB may not be available in dev/test environments
+        logger.warning(f"[HeartbeatRollup] Skipped (TimescaleDB not available): {e}")
 
 
 # Map job_ids to their actual functions
@@ -205,14 +236,13 @@ def start_automation_scheduler():
     for job_id, name, func, trigger_kwargs in JOB_DEFS:
         actual_func = func or _JOB_FUNCS.get(job_id)
         if actual_func:
-            trigger = trigger_kwargs.pop("trigger", "interval")
+            sched_kwargs = {k: v for k, v in trigger_kwargs.items() if k != "trigger"}
             _scheduler.add_job(
-                _run_job, trigger, args=[job_id, actual_func],
+                _run_job, trigger_kwargs.get("trigger", "interval"),
+                args=[job_id, actual_func],
                 id=job_id, name=name, replace_existing=True,
-                **trigger_kwargs,
+                **sched_kwargs,
             )
-            # Restore trigger key
-            trigger_kwargs["trigger"] = trigger
 
     _scheduler.start()
     logger.info(f"[AutomationScheduler] Started with {len(JOB_DEFS)} jobs.")
@@ -237,7 +267,7 @@ def _seed_initial_events(db: Session):
 
     now = datetime.utcnow()
     seed_events = [
-        ("system.startup", "system", "info", "Health Check v11.2 automation layer started"),
+        ("system.startup", "system", "info", f"Health Check v{settings.VERSION} automation layer started"),
         ("scheduler.registered", "scheduler", "info", "Patch monitor registered (every 6h)"),
         ("scheduler.registered", "scheduler", "info", "Backup monitor registered (every 6h)"),
         ("scheduler.registered", "scheduler", "info", "Report generator registered (daily 06:00)"),
@@ -261,12 +291,12 @@ def _seed_initial_events(db: Session):
         ("system.redis_ready", "system", "info", "Redis connection established"),
         ("system.cors_configured", "system", "info", "CORS configured for zasupport.com"),
         ("system.auth_active", "system", "info", "API key + agent token authentication active"),
-        ("system.encryption_pending", "system", "warning", "Payload encryption not yet implemented"),
+        ("system.encryption_active", "system", "info", "Fernet payload encryption active for sensitive data"),
         ("system.retention_policy", "system", "info", "Data retention: 90d detailed, 2yr aggregated"),
         ("compliance.popia_ready", "compliance", "info", "POPIA compliance controls active"),
         ("client.dr_shoul", "system", "info", "Client configured: Dr Evan Shoul (Stem ISP)"),
         ("client.chemel", "system", "info", "Client configured: Charles Chemel (NTT Data)"),
-        ("system.version", "system", "info", "Health Check v11.2 — Automation Layer deployed"),
+        ("system.version", "system", "info", f"Health Check v{settings.VERSION} — Automation Layer deployed"),
     ]
 
     for evt_type, source, severity, summary in seed_events:

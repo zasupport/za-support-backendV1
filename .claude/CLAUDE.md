@@ -305,7 +305,7 @@ app/modules/{module_name}/
 # SECTION 6: PRODUCT ECOSYSTEM
 
 ## Projects
-1. **Health Check v11** — `/Users/courtneybentley/Developer/za-support-backend/` — FastAPI + PostgreSQL + TimescaleDB + Redis — `zasupport/za-support-backend` — Render (Frankfurt)
+1. **Health Check v11** — `/Users/courtneybentley/Developer/za-support-backendV1/` — FastAPI + PostgreSQL + TimescaleDB + Redis — `zasupport/za-support-backendV1` — Render (Frankfurt)
 2. **Dashboard** — `/Users/courtneybentley/Developer/za-support-dashboard/` — Next.js + Tailwind — `zasupport/za-support-dashboard` — Vercel
 3. **V3 Diagnostic Engine** — `/Users/courtneybentley/za-support-diagnostics/` — Bash — `zasupport/za-diagnostic-v3-engine`
 4. **Workshop PTG** — jobs/parts management — planned
