@@ -1,0 +1,112 @@
+{
+  "name": "za-support-backendV1",
+  "display_name": "Health Check v11 Backend",
+  "version": "11.2.0",
+  "owner": "Courtney Bentley",
+  "company": "ZA Support (Vizibiliti Intelligent Solutions Pty Ltd)",
+  "description": "FastAPI backend for Health Check v11 — device monitoring, ISP outage detection, diagnostics ingestion, automation layer",
+  "tech_stack": {
+    "language": "Python 3.11",
+    "framework": "FastAPI 0.109",
+    "database": "PostgreSQL (TimescaleDB planned)",
+    "cache": "Redis",
+    "orm": "SQLAlchemy 2.0 (migration to asyncpg planned)",
+    "http_client": "httpx",
+    "scheduler": "APScheduler",
+    "deployment": "Render (Frankfurt, free tier)"
+  },
+  "hosting": {
+    "platform": "Render",
+    "region": "Frankfurt",
+    "plan": "free",
+    "database_name": "zasupportdb",
+    "redis_name": "zasupport-redis",
+    "web_service_name": "zasupport-api"
+  },
+  "repository": {
+    "provider": "GitHub",
+    "org": "zasupport",
+    "repo": "za-support-backendV1",
+    "default_branch": "main",
+    "note": "VERIFY: CLAUDE.md references za-support-backend as primary — confirm canonical repo"
+  },
+  "api": {
+    "base_url": "https://zasupport-api.onrender.com",
+    "prefix": "/api/v1",
+    "auth": {
+      "device_api": "X-API-Key header",
+      "agent_api": "Bearer token"
+    },
+    "routers": [
+      "/api/v1/devices",
+      "/api/v1/alerts",
+      "/api/v1/dashboard",
+      "/api/v1/network",
+      "/api/v1/diagnostics",
+      "/api/v1/isp",
+      "/api/v1/agent",
+      "/api/v1/system"
+    ]
+  },
+  "ecosystem_connections": {
+    "dashboard": {
+      "repo": "zasupport/za-support-dashboard",
+      "hosting": "Vercel",
+      "relationship": "reads all data via API"
+    },
+    "scout_v3": {
+      "repo": "zasupport/za-diagnostic-v3-engine",
+      "hosting": "client macOS",
+      "relationship": "sends diagnostic JSON to /api/v1/diagnostics and heartbeats to /api/v1/agent"
+    },
+    "workshop_ptg": {
+      "repo": null,
+      "status": "planned",
+      "relationship": "job creation from alerts via event bus"
+    },
+    "cybershield": {
+      "repo": null,
+      "status": "planned",
+      "relationship": "threat detection feeds monitoring"
+    },
+    "dr_templates": {
+      "repo": null,
+      "status": "Phase 1 complete",
+      "relationship": "site visit data populates assessments"
+    },
+    "microsoft_graph": {
+      "status": "planned",
+      "relationship": "OneDrive document storage, M365 email"
+    }
+  },
+  "modules_built": [
+    "devices",
+    "health_data",
+    "alerts",
+    "dashboard",
+    "network",
+    "diagnostics",
+    "isp_outage_monitor",
+    "agent_router",
+    "automation_scheduler",
+    "event_bus",
+    "notification_engine"
+  ],
+  "modules_planned": [
+    "sales_crm",
+    "checkin_trigger",
+    "customer_guides",
+    "medical_practice",
+    "physical_assessment",
+    "deduplication",
+    "ai_profiling",
+    "research_module"
+  ],
+  "consolidation": {
+    "chat_1": "CRM, Sales & Client Management",
+    "chat_2": "Diagnostics, Scout & Monitoring",
+    "chat_3": "Reports, Assessments & Knowledge Base",
+    "chat_4": "AI/ML, Agents & Automation",
+    "chat_5": "Dashboard, Infrastructure & DevOps"
+  }
+}
